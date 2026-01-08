@@ -14,7 +14,7 @@ WEBHOOK_URL = "https://discordapp.com/api/webhooks/1458651120204251269/adR7ttYwh
 
 # 1. Page Configuration (Wide Layout for Better UI)
 st.set_page_config(
-    page_title="AESTHETICA AI",
+    page_title="AI-FACE RATER",
     page_icon="🖤",
     layout="wide",
     initial_sidebar_state="collapsed"
