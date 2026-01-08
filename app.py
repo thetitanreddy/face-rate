@@ -1,4 +1,5 @@
 import streamlit as st
+st.cache_resource.clear()
 import cv2
 import mediapipe as mp
 import numpy as np
