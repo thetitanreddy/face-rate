@@ -13,7 +13,7 @@ WEBHOOK_URL = "https://discordapp.com/api/webhooks/1458651120204251269/adR7ttYwh
 
 # 1. Page Configuration
 st.set_page_config(
-    page_title="AI Face Rater — Pro Edition",
+    page_title="AI Face Rater",
     page_icon="🖤",
     layout="centered"
 )
