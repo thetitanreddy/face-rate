@@ -160,7 +160,7 @@ def send_to_discord(score, feedback, metrics, image_pil):
     image_pil.save(img_byte_arr, format='PNG')
     img_byte_arr.seek(0)
     payload = {
-        "content": "🧬 **AESTHETICA AI Analysis**",
+        "content": "**Analysis**",
         "embeds": [{
             "title": f"Rating: {score:.1f} / 10",
             "description": feedback,
@@ -226,8 +226,8 @@ def analyze_appearance(image_pil):
 col_spacer1, main_col, col_spacer2 = st.columns([1, 2, 1])
 
 with main_col:
-    st.markdown("<h1>AESTHETICA AI</h1>", unsafe_allow_html=True)
-    st.markdown("<h3>Biometric Geometry Analysis</h3>", unsafe_allow_html=True)
+    st.markdown("<h1> :-) </h1>", unsafe_allow_html=True)
+    st.markdown("<h3> REAL FASHION RUNWAY MODELING.ai </h3>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
     # Input Section
